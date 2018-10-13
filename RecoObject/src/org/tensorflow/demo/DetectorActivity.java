@@ -17,6 +17,7 @@
 package org.tensorflow.demo;
 
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
@@ -27,6 +28,7 @@ import android.graphics.Paint.Style;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.media.ImageReader.OnImageAvailableListener;
+import android.os.Bundle;
 import android.os.SystemClock;
 import android.speech.tts.TextToSpeech;
 import android.util.Size;
@@ -35,6 +37,7 @@ import android.view.Display;
 import android.view.Surface;
 import android.widget.Toast;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Vector;
@@ -44,6 +47,9 @@ import org.tensorflow.demo.env.ImageUtils;
 import org.tensorflow.demo.env.Logger;
 import org.tensorflow.demo.tracking.MultiBoxTracker;
 import org.tensorflow.demo.R; // Explicit import needed for internal Google builds.
+
+import android.view.GestureDetector;
+import android.view.MotionEvent;
 
 /**
  * An activity that uses a TensorFlowMultiBoxDetector and ObjectTracker to detect and then track
@@ -61,11 +67,11 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
   private static final String MB_OUTPUT_SCORES_NAME = "output_scores/Reshape";
   private static final String MB_MODEL_FILE = "file:///android_asset/multibox_model.pb";
   private static final String MB_LOCATION_FILE =
-      "file:///android_asset/multibox_location_priors.txt";
+          "file:///android_asset/multibox_location_priors.txt";
 
   private static final int TF_OD_API_INPUT_SIZE = 300;
   private static final String TF_OD_API_MODEL_FILE =
-      "file:///android_asset/ssd_mobilenet_v1_android_export.pb";
+          "file:///android_asset/ssd_mobilenet_v1_android_export.pb";
   private static final String TF_OD_API_LABELS_FILE = "file:///android_asset/coco_labels_list.txt";
 
   // Configuration values for tiny-yolo-voc. Note that the graph is not included with TensorFlow and
@@ -85,6 +91,7 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
   private enum DetectorMode {
     TF_OD_API, MULTIBOX, YOLO;
   }
+
   private static final DetectorMode MODE = DetectorMode.TF_OD_API;
 
   // Minimum detection confidence to track a detection.
@@ -121,11 +128,32 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
 
   private BorderedText borderedText;
 
+  private GestureDetector gestureObject;
+  //private GestureDetector
+
+  private TTSListener tts;
+
+  private boolean listen = false;
+
+  private List<Classifier.Recognition> listToSpeech = new ArrayList<>();
+
+
+
+  @Override
+  protected void onCreate(final Bundle savedInstanceState) {
+    LOGGER.d("onCreate " + this);
+    super.onCreate(null);
+
+    gestureObject = new GestureDetector(this, new LearnGesture());
+    tts = new TTSListener(this.getApplicationContext());
+
+  }
+
   @Override
   public void onPreviewSizeChosen(final Size size, final int rotation) {
     final float textSizePx =
-        TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP, TEXT_SIZE_DIP, getResources().getDisplayMetrics());
+            TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP, TEXT_SIZE_DIP, getResources().getDisplayMetrics());
     borderedText = new BorderedText(textSizePx);
     borderedText.setTypeface(Typeface.MONOSPACE);
 
@@ -134,36 +162,36 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
     int cropSize = TF_OD_API_INPUT_SIZE;
     if (MODE == DetectorMode.YOLO) {
       detector =
-          TensorFlowYoloDetector.create(
-              getAssets(),
-              YOLO_MODEL_FILE,
-              YOLO_INPUT_SIZE,
-              YOLO_INPUT_NAME,
-              YOLO_OUTPUT_NAMES,
-              YOLO_BLOCK_SIZE);
+              TensorFlowYoloDetector.create(
+                      getAssets(),
+                      YOLO_MODEL_FILE,
+                      YOLO_INPUT_SIZE,
+                      YOLO_INPUT_NAME,
+                      YOLO_OUTPUT_NAMES,
+                      YOLO_BLOCK_SIZE);
       cropSize = YOLO_INPUT_SIZE;
     } else if (MODE == DetectorMode.MULTIBOX) {
       detector =
-          TensorFlowMultiBoxDetector.create(
-              getAssets(),
-              MB_MODEL_FILE,
-              MB_LOCATION_FILE,
-              MB_IMAGE_MEAN,
-              MB_IMAGE_STD,
-              MB_INPUT_NAME,
-              MB_OUTPUT_LOCATIONS_NAME,
-              MB_OUTPUT_SCORES_NAME);
+              TensorFlowMultiBoxDetector.create(
+                      getAssets(),
+                      MB_MODEL_FILE,
+                      MB_LOCATION_FILE,
+                      MB_IMAGE_MEAN,
+                      MB_IMAGE_STD,
+                      MB_INPUT_NAME,
+                      MB_OUTPUT_LOCATIONS_NAME,
+                      MB_OUTPUT_SCORES_NAME);
       cropSize = MB_INPUT_SIZE;
     } else {
       try {
         detector = TensorFlowObjectDetectionAPIModel.create(
-            getAssets(), TF_OD_API_MODEL_FILE, TF_OD_API_LABELS_FILE, TF_OD_API_INPUT_SIZE);
+                getAssets(), TF_OD_API_MODEL_FILE, TF_OD_API_LABELS_FILE, TF_OD_API_INPUT_SIZE);
         cropSize = TF_OD_API_INPUT_SIZE;
       } catch (final IOException e) {
         LOGGER.e("Exception initializing classifier!", e);
         Toast toast =
-            Toast.makeText(
-                getApplicationContext(), "Classifier could not be initialized", Toast.LENGTH_SHORT);
+                Toast.makeText(
+                        getApplicationContext(), "Classifier could not be initialized", Toast.LENGTH_SHORT);
         toast.show();
         finish();
       }
@@ -180,68 +208,68 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
     croppedBitmap = Bitmap.createBitmap(cropSize, cropSize, Config.ARGB_8888);
 
     frameToCropTransform =
-        ImageUtils.getTransformationMatrix(
-            previewWidth, previewHeight,
-            cropSize, cropSize,
-            sensorOrientation, MAINTAIN_ASPECT);
+            ImageUtils.getTransformationMatrix(
+                    previewWidth, previewHeight,
+                    cropSize, cropSize,
+                    sensorOrientation, MAINTAIN_ASPECT);
 
     cropToFrameTransform = new Matrix();
     frameToCropTransform.invert(cropToFrameTransform);
 
     trackingOverlay = (OverlayView) findViewById(R.id.tracking_overlay);
     trackingOverlay.addCallback(
-        new DrawCallback() {
-          @Override
-          public void drawCallback(final Canvas canvas) {
-            tracker.draw(canvas);
-            if (isDebug()) {
-              tracker.drawDebug(canvas);
-            }
-          }
-        });
+            new DrawCallback() {
+              @Override
+              public void drawCallback(final Canvas canvas) {
+                tracker.draw(canvas);
+                if (isDebug()) {
+                  tracker.drawDebug(canvas);
+                }
+              }
+            });
 
     addCallback(
-        new DrawCallback() {
-          @Override
-          public void drawCallback(final Canvas canvas) {
-            if (!isDebug()) {
-              return;
-            }
-            final Bitmap copy = cropCopyBitmap;
-            if (copy == null) {
-              return;
-            }
+            new DrawCallback() {
+              @Override
+              public void drawCallback(final Canvas canvas) {
+                if (!isDebug()) {
+                  return;
+                }
+                final Bitmap copy = cropCopyBitmap;
+                if (copy == null) {
+                  return;
+                }
 
-            final int backgroundColor = Color.argb(100, 0, 0, 0);
-            canvas.drawColor(backgroundColor);
+                final int backgroundColor = Color.argb(100, 0, 0, 0);
+                canvas.drawColor(backgroundColor);
 
-            final Matrix matrix = new Matrix();
-            final float scaleFactor = 2;
-            matrix.postScale(scaleFactor, scaleFactor);
-            matrix.postTranslate(
-                canvas.getWidth() - copy.getWidth() * scaleFactor,
-                canvas.getHeight() - copy.getHeight() * scaleFactor);
-            canvas.drawBitmap(copy, matrix, new Paint());
+                final Matrix matrix = new Matrix();
+                final float scaleFactor = 2;
+                matrix.postScale(scaleFactor, scaleFactor);
+                matrix.postTranslate(
+                        canvas.getWidth() - copy.getWidth() * scaleFactor,
+                        canvas.getHeight() - copy.getHeight() * scaleFactor);
+                canvas.drawBitmap(copy, matrix, new Paint());
 
-            final Vector<String> lines = new Vector<String>();
-            if (detector != null) {
-              final String statString = detector.getStatString();
-              final String[] statLines = statString.split("\n");
-              for (final String line : statLines) {
-                lines.add(line);
+                final Vector<String> lines = new Vector<String>();
+                if (detector != null) {
+                  final String statString = detector.getStatString();
+                  final String[] statLines = statString.split("\n");
+                  for (final String line : statLines) {
+                    lines.add(line);
+                  }
+                }
+                lines.add("");
+
+                lines.add("Frame: " + previewWidth + "x" + previewHeight);
+                lines.add("Crop: " + copy.getWidth() + "x" + copy.getHeight());
+                lines.add("View: " + canvas.getWidth() + "x" + canvas.getHeight());
+                lines.add("Rotation: " + sensorOrientation);
+                lines.add("Inference time: " + lastProcessingTimeMs + "ms");
+
+                borderedText.drawLines(canvas, 10, canvas.getHeight() - 10, lines);
               }
-            }
-            lines.add("");
-
-            lines.add("Frame: " + previewWidth + "x" + previewHeight);
-            lines.add("Crop: " + copy.getWidth() + "x" + copy.getHeight());
-            lines.add("View: " + canvas.getWidth() + "x" + canvas.getHeight());
-            lines.add("Rotation: " + sensorOrientation);
-            lines.add("Inference time: " + lastProcessingTimeMs + "ms");
-
-            borderedText.drawLines(canvas, 10, canvas.getHeight() - 10, lines);
-          }
-        });
+            });
   }
 
   OverlayView trackingOverlay;
@@ -252,12 +280,12 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
     final long currTimestamp = timestamp;
     byte[] originalLuminance = getLuminance();
     tracker.onFrame(
-        previewWidth,
-        previewHeight,
-        getLuminanceStride(),
-        sensorOrientation,
-        originalLuminance,
-        timestamp);
+            previewWidth,
+            previewHeight,
+            getLuminanceStride(),
+            sensorOrientation,
+            originalLuminance,
+            timestamp);
     trackingOverlay.postInvalidate();
 
     // No mutex needed as this method is not reentrant.
@@ -284,66 +312,60 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
     }
     final Context ctx = this.getApplicationContext();
     runInBackground(
-        new Runnable() {
-          @Override
-          public void run() {
-             TTSListener tts = new TTSListener(ctx);
-          /*  TextToSpeech tts = new TextToSpeech(ctx, new TextToSpeech.OnInitListener() {
+            new Runnable() {
               @Override
-              public void onInit(int i) {
-                System.out.println(i);
+              public void run() {
+
+                LOGGER.i("Running detection on image " + currTimestamp);
+                final long startTime = SystemClock.uptimeMillis();
+                final List<Classifier.Recognition> results = detector.recognizeImage(croppedBitmap);
+                lastProcessingTimeMs = SystemClock.uptimeMillis() - startTime;
+
+                cropCopyBitmap = Bitmap.createBitmap(croppedBitmap);
+                final Canvas canvas = new Canvas(cropCopyBitmap);
+                final Paint paint = new Paint();
+                paint.setColor(Color.RED);
+                paint.setStyle(Style.STROKE);
+                paint.setStrokeWidth(2.0f);
+
+                float minimumConfidence = MINIMUM_CONFIDENCE_TF_OD_API;
+                switch (MODE) {
+                  case TF_OD_API:
+                    minimumConfidence = MINIMUM_CONFIDENCE_TF_OD_API;
+                    break;
+                  case MULTIBOX:
+                    minimumConfidence = MINIMUM_CONFIDENCE_MULTIBOX;
+                    break;
+                  case YOLO:
+                    minimumConfidence = MINIMUM_CONFIDENCE_YOLO;
+                    break;
+                }
+
+                final List<Classifier.Recognition> mappedRecognitions =
+                        new LinkedList<Classifier.Recognition>();
+                listToSpeech.clear();
+              listToSpeech.addAll(results);
+                for (final Classifier.Recognition result : results) {
+                  final RectF location = result.getLocation();
+                  if (location != null && result.getConfidence() >= minimumConfidence) {
+                    canvas.drawRect(location, paint);
+
+                    cropToFrameTransform.mapRect(location);
+                    result.setLocation(location);
+                    mappedRecognitions.add(result);
+
+
+                  }
+                }
+
+
+                tracker.trackResults(mappedRecognitions, luminanceCopy, currTimestamp);
+                trackingOverlay.postInvalidate();
+
+                requestRender();
+                computingDetection = false;
               }
-            }); */
-
-            LOGGER.i("Running detection on image " + currTimestamp);
-            final long startTime = SystemClock.uptimeMillis();
-            final List<Classifier.Recognition> results = detector.recognizeImage(croppedBitmap);
-            lastProcessingTimeMs = SystemClock.uptimeMillis() - startTime;
-
-            cropCopyBitmap = Bitmap.createBitmap(croppedBitmap);
-            final Canvas canvas = new Canvas(cropCopyBitmap);
-            final Paint paint = new Paint();
-            paint.setColor(Color.RED);
-            paint.setStyle(Style.STROKE);
-            paint.setStrokeWidth(2.0f);
-
-            float minimumConfidence = MINIMUM_CONFIDENCE_TF_OD_API;
-            switch (MODE) {
-              case TF_OD_API:
-                minimumConfidence = MINIMUM_CONFIDENCE_TF_OD_API;
-                break;
-              case MULTIBOX:
-                minimumConfidence = MINIMUM_CONFIDENCE_MULTIBOX;
-                break;
-              case YOLO:
-                minimumConfidence = MINIMUM_CONFIDENCE_YOLO;
-                break;
-            }
-
-            final List<Classifier.Recognition> mappedRecognitions =
-                new LinkedList<Classifier.Recognition>();
-
-            for (final Classifier.Recognition result : results) {
-              final RectF location = result.getLocation();
-              if (location != null && result.getConfidence() >= minimumConfidence) {
-                canvas.drawRect(location, paint);
-
-                cropToFrameTransform.mapRect(location);
-                result.setLocation(location);
-                mappedRecognitions.add(result);
-                tts.speak(result.getTitle(),false);
-
-              }
-            }
-
-
-            tracker.trackResults(mappedRecognitions, luminanceCopy, currTimestamp);
-            trackingOverlay.postInvalidate();
-
-            requestRender();
-            computingDetection = false;
-          }
-        });
+            });
   }
 
   @Override
@@ -359,5 +381,54 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
   @Override
   public void onSetDebug(final boolean debug) {
     detector.enableStatLogging(debug);
+  }
+
+  // Gestion des gestes
+
+  @Override
+  public boolean onTouchEvent(MotionEvent event) {
+    this.gestureObject.onTouchEvent(event);
+    return super.onTouchEvent(event);
+  }
+
+  class LearnGesture extends GestureDetector.SimpleOnGestureListener {
+    private static final int SWIPE_THRESHOLD = 100;
+    private static final int SWIPE_VELOCITY_THRESHOLD = 100;
+
+    @Override
+    public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+
+      boolean result = false;
+      try {
+        float diffY = e2.getY() - e1.getY();
+        float diffX = e2.getX() - e1.getX();
+        if (Math.abs(diffX) > Math.abs(diffY)) {
+          if (Math.abs(diffX) > SWIPE_THRESHOLD && Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+            if (diffX > 0) { //onSwipeRight
+              tts.speak("Droite", false);
+             listen = true;
+              Thread.sleep(0,0000001);
+              listen = false;
+              tts.speak(SentenceBuilder.describe(listToSpeech), true);
+              listToSpeech.clear();
+
+            } else {  //onSwipeLeft
+              tts.speak("Gauche", false);
+            }
+            result = true;
+          }
+        } else if (Math.abs(diffY) > SWIPE_THRESHOLD && Math.abs(velocityY) > SWIPE_VELOCITY_THRESHOLD) {
+          if (diffY > 0) { //onSwipeBottom
+            tts.speak("Bas", false);
+          } else {//onSwipeTop
+            tts.speak("Haut", false);
+          }
+          result = true;
+        }
+      } catch (Exception exception) {
+        exception.printStackTrace();
+      }
+      return result;
+    }
   }
 }
