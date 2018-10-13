@@ -415,7 +415,7 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
         if (Math.abs(diffX) > Math.abs(diffY)) {
           if (Math.abs(diffX) > SWIPE_THRESHOLD && Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
             if (diffX > 0) { //onSwipeRight
-              tts.speak("Droite", false);
+              tts.speak("Description d'une pièce", false);
              listen = true;
               Thread.sleep(0,0000001);
               listen = false;
@@ -431,7 +431,12 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
           if (diffY > 0) { //onSwipeBottom
             tts.speak("Bas", false);
           } else {//onSwipeTop
-            tts.speak("Haut", false);
+            tts.speak("Detection reconnaissance de personnes", false);
+            listen = true;
+            Thread.sleep(0,0000001);
+            listen = false;
+            tts.speak(SentenceBuilder.describePersons(listToSpeech), true);
+            listToSpeech.clear();
           }
           result = true;
         }

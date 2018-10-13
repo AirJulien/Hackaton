@@ -40,7 +40,32 @@ private SentenceBuilder(){} // private constructor => static class
             }
         }
         // TODO En annexe, pour la dernière entrée, on met un "et"
-        System.out.println(res);
+        if("Il y a ".equals(res)) res="Rien n'est détecté, veuillez recommcencer";
+        return res;
+    }
+    public final static String describePersons(List<Classifier.Recognition> recognitions){
+        String res = "Il y a ";
+        Map<String, Integer> objectOccurences = new HashMap<String, Integer>();
+
+        // Construction de la table de correspondance (objet, nombreApparitions)
+        for (Classifier.Recognition rec : recognitions){
+            // TODO Qu'est-ce qu'on fait des éléments à faible confiance ?
+            // TODO NOTE On fait les estimations de distances finalement ???
+            if(!objectOccurences.containsKey(rec.getTitle())) {
+                objectOccurences.put(rec.getTitle(), 1);
+            }
+            else {
+                objectOccurences.put(rec.getTitle(), objectOccurences.get(rec.getTitle())+1);
+            }
+        }
+        int i =0;
+        // Exploitation de la table de correspondance pour construire la description
+        for (Entry<String, Integer> ent : objectOccurences.entrySet()) {
+            if(ent.getKey().equals("personne"))
+                    res = res + ent.getValue() + " " + ent.getKey();
+            i++;
+        }
+        if ("Il y a ".equals(res)) res = "Aucune personne n'a été détecté";
         return res;
     }
 
