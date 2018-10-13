@@ -12,7 +12,6 @@ feu de signalisation
 bouche d'incendie
 ???
 panneau stop
-
 parcmètre
 banc
 oiseau
