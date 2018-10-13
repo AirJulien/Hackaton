@@ -1,0 +1,92 @@
+???
+personne
+vélo
+voiture
+moto
+avion
+bus
+train
+camion
+bateau
+feu de signalisation
+bouche d'incendie
+???
+panneau stop
+
+parcmètre
+banc
+oiseau
+chat
+chien
+cheval
+mouton
+vache
+elephant
+ours
+zebre
+giraffe
+???
+sac-a-dos
+parapluie
+???
+???
+sac-a-main
+cravatte
+costume
+frisbee
+ski
+snowboard
+ballon de sport
+cerf-volant
+bate de baseball
+gant de baseball
+skateboard
+surf
+raquette de tennis
+bouteille
+???
+verre à vinasse
+tasse
+fourchette
+couteau
+cuillere
+bol
+banane
+pomme
+sandwich
+orange
+broccoli
+carrote
+hot dog
+pizza
+donut
+gateau
+chaise
+canapé
+plante en pot
+lit
+???
+table
+???
+???
+toilette
+???
+télé
+ordinateur portable
+souris
+télécommande
+clavier
+téléphone portable
+micro-onde
+four
+grille-pain
+lavabo
+refrigerateur
+???
+livre
+horloge
+vase
+ciseaux
+ours en peluche
+sèche-cheveaux
+brosse à dents

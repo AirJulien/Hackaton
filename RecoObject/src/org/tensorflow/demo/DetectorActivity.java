@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Vector;
 import org.tensorflow.demo.OverlayView.DrawCallback;
 import org.tensorflow.demo.env.BorderedText;
@@ -72,7 +73,16 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
   private static final int TF_OD_API_INPUT_SIZE = 300;
   private static final String TF_OD_API_MODEL_FILE =
           "file:///android_asset/ssd_mobilenet_v1_android_export.pb";
-  private static final String TF_OD_API_LABELS_FILE = "file:///android_asset/coco_labels_list.txt";
+
+  // TODO TODO Changer le coco_labels en fonction de la langue du téléphone
+  // TODO Langue par défaut: anglais
+  //private static String TF_OD_API_LABELS_FILE = "file:///android_asset/coco_labels_list.txt";
+  private static final String TF_OD_API_LABELS_FILE = "file:///android_asset/coco_labels_list_fr.txt";
+
+  // Si on détecte que le téléphone est en français, on change la langue utilisée par le classifieur
+  /*if(java.util.Locale.getDefault().getLanguage() != "en") {
+    System.out.println((Locale.getDefault().getLanguage()));
+  }*/
 
   // Configuration values for tiny-yolo-voc. Note that the graph is not included with TensorFlow and
   // must be manually placed in the assets/ directory by the user.
